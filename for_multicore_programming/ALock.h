@@ -7,7 +7,7 @@
 class ALock
 {
 public:
-	ALock(int64_t capacity) : size{ capacity }
+	ALock(int64_t capacity) : size{ capacity }, tls_index{ TLS_OUT_OF_INDEXES }
 	{
 		flags = new int256_t[capacity];
 		tail = 0;
@@ -20,6 +20,17 @@ public:
 			*hazard_ptr = 0;
 		}
 	}
+
+	~ALock()
+	{
+		delete[] flags;
+
+		if (tls_index != TLS_OUT_OF_INDEXES)
+		{
+			TlsFree(tls_index);
+		}
+	}
+
 
 	void lock()
 	{
@@ -48,7 +59,7 @@ private:
 	int256_t*	flags;
 	int64_t		tail;
 	int64_t		size;
-	int32_t		tls_index;
+	uint32_t	tls_index;
 };
 
 
