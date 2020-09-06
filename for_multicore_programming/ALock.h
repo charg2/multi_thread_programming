@@ -7,7 +7,7 @@
 class ALock
 {
 public:
-	ALock(size_t capacity) : size{ capacity }
+	ALock(int64_t capacity) : size{ capacity }
 	{
 		flags = new int256_t[capacity];
 		tail = 0;
@@ -23,7 +23,7 @@ public:
 
 	void lock()
 	{
-		int16_t slot = (InterlockedIncrement16(&tail)) % size;
+		int64_t slot = (InterlockedIncrement64(&tail)) % size;
 		TlsSetValue(tls_index, (void*)slot);
 		for (; flags[slot].value == 0 ;)
 		{}
@@ -31,7 +31,7 @@ public:
 
 	void unlock()
 	{
-		int16_t slot = reinterpret_cast<int16_t>(TlsGetValue(tls_index));
+		int64_t slot = reinterpret_cast<int64_t>(TlsGetValue(tls_index));
 		
 		flags[slot].value = 0;
 		flags[(slot + 1) % size].value = 1;
@@ -46,9 +46,9 @@ private:
 
 private:
 	int256_t*	flags;
+	int64_t		tail;
+	int64_t		size;
 	int32_t		tls_index;
-	int16_t		tail;
-	int16_t		size;
 };
 
 
@@ -81,7 +81,7 @@ private:
 //
 //	void lock()
 //	{
-//		int16_t slot = (++tail) % flags.size();
+//		int64_t slot = (++tail) % flags.size();
 //		TlsSetValue(tls_index, (void*)slot);
 //		for (; flags[slot].value == 0;)
 //		{
@@ -90,7 +90,7 @@ private:
 //
 //	void unlock()
 //	{
-//		int16_t slot = reinterpret_cast<uint32_t>(TlsGetValue(tls_index));
+//		int64_t slot = reinterpret_cast<uint32_t>(TlsGetValue(tls_index));
 //
 //		flags[slot].value = 0;
 //		flags[(slot + 1) % flags.size()].value = 1;
@@ -105,7 +105,7 @@ private:
 //
 //private:
 //	std::vector<int256_t>	flags;
-//	std::atomic<int16_t>	tail;
+//	std::atomic<int64_t>	tail;
 //	int32_t					tls_index;
 //};
 //
