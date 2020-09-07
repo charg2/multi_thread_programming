@@ -10,7 +10,7 @@
 using namespace std;
 
 constexpr size_t test_thread_count = 16;
-constexpr size_t test_count = 100000;
+constexpr size_t test_count = 400000;
 
 ALock		a_lock(test_thread_count);
 TTASLock	ttas_lock;
@@ -114,6 +114,14 @@ auto main() -> void
 		test_procedure_base( test.lock_procedure, test.text );
 	}
 
-
 	return; 
 }
+
+
+/*
+tas_lock counter : 6400000 delta_tick : 6062
+ttas_lock counter : 6400000 delta_tick : 5829
+alock counter : 6400000 delta_tick : 5453
+clhlock counter : 6400000 delta_tick : 2437
+*/
+
