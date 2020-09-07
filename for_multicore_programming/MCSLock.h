@@ -12,8 +12,7 @@ private:
 
 public:
 	MCSLock() : tail{ nullptr }
-	{
-	}
+	{}
 
 	void lock()
 	{
@@ -38,25 +37,22 @@ public:
 	void unlock()
 	{
 		QNode* node = local_node;
+		
 		if (node->next == nullptr)
 		{
-			// \
-			if (static_cast<QNode*>(InterlockedExchangePointer((volatile PVOID*)&tail, node)))
-			
-
-			if (static_cast<QNode*>(InterlockedExchangePointer((volatile PVOID*)&tail, node)))
+			// 락에 접근 하는 다른 스레드가 없는 경우.
+			if ( node == InterlockedCompareExchangePointer((volatile PVOID*)&tail , nullptr, node) )
 			{
 				return;
 			}
 
-			for (; node->next == nullptr ;) {}
-
-			node->next->locked = false;
-			node->next = nullptr;
-
+			// 락에 접근 중이나 lock() 처리중;
+			for (; node->next == nullptr ;) {} 
 		}
-	}
 
+		node->next->locked = false;
+		node->next = nullptr;
+	}
 
 private:
 	inline static thread_local QNode* local_node { };
