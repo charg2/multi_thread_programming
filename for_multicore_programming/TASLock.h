@@ -1,28 +1,28 @@
 #pragma once
+#include "TTASLock.h"
 #include "concurrency.h"
 
-class TTASLock
+class TASLock
 {
 public:
-	TTASLock() : flag{}
+	TASLock() : flag{ 0 }
 	{}
 
 	void lock()
 	{
-		// ttas
 		for (;;)
 		{
-			if (flag == 0 && InterlockedExchange((volatile LONG*)&flag, 1) == 0)
+			if ( InterlockedExchange((volatile LONG*)&flag, 1) == 0)
 			{
 				break;
 			}
 		}
 	}
+
 	void unlock()
 	{
 		flag = 0;
 	}
-
 
 private:
 	int flag;
