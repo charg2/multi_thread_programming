@@ -8,11 +8,12 @@
 #include "TASLock.h"
 #include "CLHLock.h"
 #include "MCSLock.h"
+#include "TOLock.h"
 
 using namespace std;
 
 constexpr size_t test_thread_count = 16;
-constexpr size_t test_count = 3'200'000 / test_thread_count;
+constexpr size_t total_test_count = 320'000'00;
 
 ALock				a_lock(test_thread_count);
 TTASLock			ttas_lock;
@@ -22,25 +23,25 @@ MCSLock				mcs_lock;
 mutex				mtx;
 CRITICAL_SECTION	critical_section;
 SRWLOCK				rw_lock;
+TOLock				to_lock;
 
 size_t g_counter {};
 
 void initialize();
 
-void test_mutex();
-void test_critical_section();
-void test_rw_lock();
-void test_alock();
-void test_ttaslock();
-void test_taslock();
-void test_clhlock();
-void test_mcslock();
-void test_procedure_base(void(*lock_procedure)(), const string_view& str_v);
-
+void test_mutex(size_t test_count);
+void test_critical_section(size_t test_count);
+void test_rw_lock(size_t test_count);
+void test_alock(size_t test_count);
+void test_ttaslock(size_t test_count);
+void test_taslock( size_t test_count);
+void test_clhlock( size_t test_count);
+void test_mcslock( size_t test_count);
+void test_procedure_base(void(*lock_procedure)(size_t), const string_view& str_v, size_t thread_count, size_t test_count);
 
 struct testing_context
 {
-	void (*lock_procedure)();
+	void (*lock_procedure)(size_t);
 	std::string_view text;
 };
 
@@ -53,30 +54,27 @@ auto main() -> void
 
 	std::vector<testing_context> tests;
 
-	tests.push_back({ test_taslock, "tas_lock" });
-	tests.push_back({ test_ttaslock, "ttas_lock" });
-	tests.push_back({ test_mutex, "mutex" });
-	tests.push_back({ test_alock, "alock" });
+	tests.push_back({ test_taslock,	"tas_lock" });
+	tests.push_back({ test_ttaslock,"ttas_lock" });
+	tests.push_back({ test_mutex,	"std::mutex" });
+	tests.push_back({ test_alock,	"alock" });
 	tests.push_back({ test_clhlock, "clhlock" });
 	tests.push_back({ test_mcslock, "mcslock" });
 	tests.push_back({ test_rw_lock, "rw_lock" });
 	tests.push_back({ test_critical_section, "critical_section" });
 
-	for( const auto& test : tests)
-	{
-		test_procedure_base( test.lock_procedure, test.text );
-	}
 
+	for (int n{ 1 }; n <= 32; n *= 2)
+	{
+		for (const auto& test : tests)
+		{
+			test_procedure_base(test.lock_procedure, test.text, n, total_test_count / n );
+		}
+	}
+	
 	return; 
 }
 
-
-/*
-tas_lock counter : 6400000 delta_tick : 6062
-ttas_lock counter : 6400000 delta_tick : 5829
-alock counter : 6400000 delta_tick : 5453
-clhlock counter : 6400000 delta_tick : 2437
-*/
 
 
 void initialize()
@@ -85,7 +83,7 @@ void initialize()
 	InitializeSRWLock(&rw_lock);
 }
 
-void test_mutex()
+void test_mutex(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -97,7 +95,7 @@ void test_mutex()
 	}
 }
 
-void test_critical_section()
+void test_critical_section(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -109,7 +107,7 @@ void test_critical_section()
 	}
 }
 
-void test_rw_lock()
+void test_rw_lock(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -122,7 +120,7 @@ void test_rw_lock()
 }
 
 
-void test_alock()
+void test_alock(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -134,7 +132,7 @@ void test_alock()
 	}
 }
 
-void test_ttaslock()
+void test_ttaslock(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -146,7 +144,7 @@ void test_ttaslock()
 	}
 }
 
-void test_taslock()
+void test_taslock(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -159,7 +157,7 @@ void test_taslock()
 }
 
 
-void test_clhlock()
+void test_clhlock(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -172,7 +170,7 @@ void test_clhlock()
 }
 
 
-void test_mcslock()
+void test_mcslock(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -186,16 +184,19 @@ void test_mcslock()
 
 
 
-void test_procedure_base(void(*lock_procedure)(), const string_view& str_v)
+void test_procedure_base(void(*lock_procedure)(size_t), const string_view& str_v
+						 , size_t thread_count, size_t test_count)
 {
+	std::cout << "--------------------- thread count : " << thread_count << " ---------" << endl;
+
 	std::vector<std::thread> ths;
-	ths.reserve(test_thread_count);
+	ths.reserve(thread_count);
 
 	size_t start_tick = GetTickCount64();
 
-	for (int n{}; n < test_thread_count; ++n)
+	for (int n{}; n < thread_count; ++n)
 	{
-		ths.emplace_back(lock_procedure);
+		ths.emplace_back(lock_procedure, test_count);
 	}
 
 	for (auto& th : ths)

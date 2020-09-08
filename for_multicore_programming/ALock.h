@@ -30,7 +30,6 @@ public:
 		}
 	}
 
-
 	void lock()
 	{
 		int64_t slot = (InterlockedIncrement64(&tail)) % size;
