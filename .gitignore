@@ -6,6 +6,7 @@
 *.lo
 *.o
 *.obj
+!for_multicore_programming/spin_wait.obj
 
 # Precompiled Headers
 *.gch
