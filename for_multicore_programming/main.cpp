@@ -2,6 +2,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <string_view>
 
 #include "ALock.h"
 #include "TTASLock.h"
@@ -10,6 +11,8 @@
 #include "MCSLock.h"
 #include "TOLock.h"
 #include "BackoffLock.h"
+#include "ReadWriteLock.h"
+#include "FastSpinLock.h"
 
 using namespace std;
 
@@ -26,6 +29,8 @@ mutex				mtx;
 CRITICAL_SECTION	critical_section;
 SRWLOCK				rw_lock;
 BackoffLock			backoff_lock;
+ReadWriteLock		read_write_lock;
+FastSpinLock		fs_lock;
 
 size_t g_counter {};
 
@@ -39,8 +44,10 @@ void test_ttaslock(size_t test_count);
 void test_taslock( size_t test_count);
 void test_clhlock( size_t test_count);
 void test_mcslock(size_t test_count);
-void test_backofflock( size_t test_count);
-void test_procedure_base(void(*lock_procedure)(size_t), const string_view& str_v, size_t thread_count, size_t test_count);
+void test_backofflock(size_t test_count);
+void test_readwritelock(size_t test_count);
+void test_fastspinlock(size_t test_count);
+void test_procedure_base(void(*lock_procedure)(size_t), const std::string_view& str_v, size_t thread_count, size_t test_count);
 
 struct testing_context
 {
@@ -57,18 +64,21 @@ auto main() -> void
 
 	std::vector<testing_context> tests;
 
-	tests.push_back({ test_taslock,				"tas_lock" });
-	tests.push_back({ test_ttaslock,			"ttas_lock" });
-	tests.push_back({ test_backofflock,			"backofflock" });
-	tests.push_back({ test_alock,				"alock" });
-	tests.push_back({ test_clhlock,				"clhlock" });
-	tests.push_back({ test_mcslock,				"mcslock" });
-	tests.push_back({ test_mutex,				"std::mutex" });
-	tests.push_back({ test_rw_lock,				"rw_lock" });
-	tests.push_back({ test_critical_section,	"critical_section" });
+	//tests.push_back({ test_taslock,				"tas_lock" });
+	//tests.push_back({ test_ttaslock,			"ttas_lock" });
+	//tests.push_back({ test_backofflock,			"backofflock" });
+	//tests.push_back({ test_alock,				"alock" });
+	//tests.push_back({ test_clhlock,				"clhlock" });
+	//tests.push_back({ test_mcslock,				"mcslock" });
+
+	tests.push_back({ test_fastspinlock,		"fastspinlock" });
+	//tests.push_back({ test_readwritelock,		"custom_readwrtielock" });
+	//tests.push_back({ test_mutex,				"std::mutex" });
+	//tests.push_back({ test_rw_lock,				"rw_lock" });
+	//tests.push_back({ test_critical_section,	"critical_section" });
 
 
-	for (int thread_count{ 1 }; thread_count <= system_thread_count; thread_count *= 2)
+	for (int thread_count{ 2 }; thread_count <= system_thread_count; thread_count *= 2)
 	{
 		std::cout << "--------------------- thread count : " << thread_count << " --------------------" << endl;
 		std::cout << "| lock type";
@@ -87,6 +97,9 @@ auto main() -> void
 
 	}
 	
+	int n;
+	cin >> n;
+
 	return; 
 }
 
@@ -213,6 +226,30 @@ void test_backofflock(size_t test_count)
 }
 
 
+
+void test_readwritelock(size_t test_count)
+{
+	for (int n{}; n < test_count; ++n)
+	{
+		read_write_lock.lock();
+
+		g_counter += 1;
+
+		read_write_lock.unlock();
+	}
+}
+
+void test_fastspinlock(size_t test_count)
+{
+	for (int n{}; n < test_count; ++n)
+	{
+		fs_lock.EnterLock();
+
+		g_counter += 1;
+
+		fs_lock.LeaveLock();
+	}
+}
 
 void test_procedure_base(void(*lock_procedure)(size_t), const string_view& str_v
 						 , size_t thread_count, size_t test_count)

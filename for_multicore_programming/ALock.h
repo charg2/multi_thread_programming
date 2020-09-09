@@ -9,7 +9,7 @@ public:
 	ALock(int64_t capacity) : size{ capacity }, tls_index{ TLS_OUT_OF_INDEXES }
 	{
 		flags = new int256_t[capacity];
-		tail = 0;
+		tail = -1;
 		flags[0].value = 1;
 
 		tls_index = TlsAlloc();
