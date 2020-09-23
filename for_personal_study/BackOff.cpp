@@ -1,10 +1,10 @@
-#include <Windows.h>
-#include "BackOff.h"
+#include "fastrand.h"
+#include "backoff.h"
 
 
 void BackOff::do_backoff()
 {
-	int32_t delay = (rand() % limit);
+	int32_t delay = (fast_rand() % limit);
 	if (0 == delay)
 	{
 		return;

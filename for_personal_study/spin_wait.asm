@@ -5,7 +5,7 @@ spin_wait PROC
 	custom_loop:
 		loop custom_loop;
 	
-	ret 
+	ret kp
 
 spin_wait ENDP
 

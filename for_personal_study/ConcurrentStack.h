@@ -96,7 +96,8 @@ namespace c2::concurrency
 				}
 				else
 				{
-					if (0 == InterlockedCompareExchange128((int64_t*)&this->top, (int64_t)(local_top.id + 1), (int64_t)local_top.node->next, (int64_t*)&local_top))
+				//	if (0 == InterlockedCompareExchange128((int64_t*)&this->top, (int64_t)(local_top.id + 1), (int64_t)local_top.node->next, (int64_t*)&local_top))
+					if (0 == InterlockedCompareExchange128((int64_t*)&this->top, (int64_t)(local_top.id + 1), (int64_t)this->top.node->next, (int64_t*)&local_top))
 					{
 						backoff.do_backoff();
 
@@ -171,7 +172,7 @@ namespace c2::concurrency
 				{
 					new_node->next = local_top_ptr;
 
-					if (local_top_ptr != InterlockedCompareExchange64((volatile LONG64*)&top.node, (LONG64)new_node, (LONG64)local_top_ptr))
+					if (local_top_ptr != (Node*)InterlockedCompareExchange64((volatile LONG64*)&top.node, (LONG64)new_node, (LONG64)local_top_ptr))
 					{
 						backoff.do_backoff();
 
@@ -213,7 +214,7 @@ namespace c2::concurrency
 				}
 				else
 				{
-					if (0 == InterlockedCompareExchange128((int64_t*)&this->top, (int64_t)(local_top.id + 1), (int64_t)local_top.node->next, (int64_t*)&local_top))
+					if (0 == InterlockedCompareExchange128((int64_t*)&this->top, (int64_t)(local_top.id + 1), (int64_t)this->top.node->next, (int64_t*)&local_top))
 					{
 						backoff.do_backoff();
 

@@ -13,6 +13,7 @@
 #include "BackoffLock.h"
 #include "ReadWriteLock.h"
 #include "FastSpinLock.h"
+#include "bakery_lock.h"
 
 using namespace std;
 
@@ -38,7 +39,7 @@ void initialize();
 
 void test_mutex(size_t test_count);
 void test_critical_section(size_t test_count);
-void test_rw_lock(size_t test_count);
+void test_reader_writer_lock(size_t test_count);
 void test_alock(size_t test_count);
 void test_ttaslock(size_t test_count);
 void test_taslock( size_t test_count);
@@ -47,9 +48,11 @@ void test_mcslock(size_t test_count);
 void test_backofflock(size_t test_count);
 void test_readwritelock(size_t test_count);
 void test_fastspinlock(size_t test_count);
+void test_peterson_lock(size_t test_count);
+void test_bakery_lock(size_t test_count);
 void test_procedure_base(void(*lock_procedure)(size_t), const std::string_view& str_v, size_t thread_count, size_t test_count);
 
-struct testing_context
+struct task_context
 {
 	void (*lock_procedure)(size_t);
 	std::string_view text;
@@ -62,23 +65,24 @@ auto main() -> void
 
 	initialize();
 
-	std::vector<testing_context> tests;
+	std::vector<task_context> tests;
 
+	tests.push_back({ test_mutex,				"mutex" });
+	tests.push_back({ test_bakery_lock,		"bakery_lock" });
 	//tests.push_back({ test_taslock,				"tas_lock" });
 	//tests.push_back({ test_ttaslock,			"ttas_lock" });
 	//tests.push_back({ test_backofflock,			"backofflock" });
 	//tests.push_back({ test_alock,				"alock" });
 	//tests.push_back({ test_clhlock,				"clhlock" });
 	//tests.push_back({ test_mcslock,				"mcslock" });
-
-	tests.push_back({ test_fastspinlock,		"fastspinlock" });
+	//tests.push_back({ test_fastspinlock,		"fastspinlock" });
 	//tests.push_back({ test_readwritelock,		"custom_readwrtielock" });
 	//tests.push_back({ test_mutex,				"std::mutex" });
 	//tests.push_back({ test_rw_lock,				"rw_lock" });
 	//tests.push_back({ test_critical_section,	"critical_section" });
 
 
-	for (int thread_count{ 2 }; thread_count <= system_thread_count; thread_count *= 2)
+	for (int thread_count{ 1 }; thread_count <= system_thread_count; thread_count *= 2)
 	{
 		std::cout << "--------------------- thread count : " << thread_count << " --------------------" << endl;
 		std::cout << "| lock type";
@@ -138,7 +142,7 @@ void test_critical_section(size_t test_count)
 	}
 }
 
-void test_rw_lock(size_t test_count)
+void test_reader_writer_lock(size_t test_count)
 {
 	for (int n{}; n < test_count; ++n)
 	{
@@ -248,6 +252,43 @@ void test_fastspinlock(size_t test_count)
 		g_counter += 1;
 
 		fs_lock.LeaveLock();
+	}
+}
+
+
+void test_peterson_lock(size_t test_count)
+{
+	static long long p_lock_id = {};
+
+	p_lock_id = InterlockedIncrement64(&p_lock_id);
+	if (p_lock_id >= 2)
+	{
+		return;
+	}
+	
+	for (int n{}; n < test_count; ++n)
+	{
+		//fs_lock.EnterLock();
+
+		g_counter += 1;
+
+		//fs_lock.LeaveLock();
+	}
+
+	p_lock_id = 0;
+}
+
+void test_bakery_lock(size_t test_count)
+{
+	static bakery_lock lock;
+
+	for (int n{}; n < test_count; ++n)
+	{
+		lock.lock();
+
+		g_counter += 1;
+
+		lock.unlock();
 	}
 }
 

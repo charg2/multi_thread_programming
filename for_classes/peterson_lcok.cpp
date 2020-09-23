@@ -4,11 +4,12 @@
 #include <mutex>
 #include <vector>
 #include <chrono>
+#include "bakery_lock.h"
 
 
 using namespace std;
 
-volatile int sum{};
+volatile int g_counter{};
 volatile bool flags[2]{};
 volatile int victim{};
 mutex mtx;
@@ -38,7 +39,7 @@ void test_using_peterson_lock(int id)
 	{
 		lock(id);
 
-		sum += 2;
+		g_counter += 2;
 
 		unlock(id);
 	}
@@ -51,11 +52,26 @@ void test_using_mutex(int id)
 	{
 		mtx.lock();
 
-		sum += 2;
+		g_counter += 2;
 
 		mtx.unlock();
 	}
 }
+
+void test_using_bakery_lock(int id)
+{
+	static bakery_lock lock;
+
+	for (int n{}; n < 2500'0000; ++n)
+	{
+		lock.lock();
+
+		g_counter += 2;
+
+		lock.unlock();
+	}
+}
+
 
 struct task_context
 {
@@ -74,11 +90,12 @@ auto main() -> void
 	vector<thread> threads;
 
 	cases.emplace_back( test_using_mutex, "mutex" );
-	cases.emplace_back( test_using_peterson_lock, "peterson_lock" );
+	cases.emplace_back(test_using_peterson_lock, "peterson_lock");
+	cases.emplace_back( test_using_bakery_lock, "bakery_lock" );
 
 	for (auto& the_case : cases)
 	{
-		sum = 0;
+		g_counter = 0;
 
 		auto start_time = chrono::high_resolution_clock::now();
 
@@ -92,7 +109,7 @@ auto main() -> void
 
 		auto exec_time = chrono::high_resolution_clock::now() - start_time;
 
-		cout << the_case.tag << "  sum = " << sum << " Exec_time = " << chrono::duration_cast<chrono::milliseconds>(exec_time).count() << "ms\n";
+		cout << the_case.tag << "  sum = " << g_counter << " Exec_time = " << chrono::duration_cast<chrono::milliseconds>(exec_time).count() << "ms\n";
 
 		threads.clear();
 	}
