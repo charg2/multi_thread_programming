@@ -5,6 +5,12 @@
 #include <atomic>
 #include <memory>
 
+#include <iostream>
+#include <vector>
+#include <chrono>
+
+using namespace std::chrono;
+
 using namespace std;
 
 struct Node
@@ -166,17 +172,17 @@ struct SPONode
 
 
 
-class SPOList
+class SPLazyList
 {
 public:
-	SPOList()
+	SPLazyList()
 	{
 		head = std::make_shared<SPONode>(0x8000'0000);
 		tail = std::make_shared<SPONode>(0x7FFF'FFFF);
 
 		head->next = tail;
 	}
-	~SPOList()
+	~SPLazyList()
 	{}
 
 	void clear()
@@ -274,8 +280,6 @@ public:
 				curr->unlock();
 				pred->unlock();
 
-				// delete 하지 않는다.
-
 				return true;
 			}
 		}
@@ -293,8 +297,75 @@ public:
 		return curr->key == key && curr->removed == false;
 	}
 
+	void display20()
+	{
+		shared_ptr<SPONode> cur_ptr = head->next;
+		for (int i = 0; i < 20; ++i)
+		{
+			if (tail == cur_ptr) 
+			{ 
+				break; 
+			}
+
+			cout << cur_ptr->key << ", ";
+			cur_ptr = cur_ptr->next;
+		}
+		cout << endl;
+	}
+
+
 private:
 	std::shared_ptr<SPONode> head;
 	std::shared_ptr<SPONode> tail;
 };
 
+
+constexpr size_t test_case = 40'0000;
+constexpr size_t key_range = 1000;
+SPLazyList	  set;
+
+
+
+void do_benchmark(int num_threads)
+{
+	for (int i = 0; i < test_case / num_threads; ++i)
+	{
+		switch (rand() % 3)
+		{
+		case 0:
+			set.add(rand() % key_range);
+			break;
+		case 1:
+			set.remove(rand() % key_range);
+			break;
+		case 2:
+			set.contain(rand() % key_range);
+			break;
+		default: cout << "Error\n";
+			exit(-1);
+		}
+	}
+}
+
+auto main() -> int
+{
+	set.clear();
+
+	for (size_t thread_count = 1; thread_count <= 8; thread_count *= 2)
+	{
+		vector<thread> threads;
+		auto start_t = high_resolution_clock::now();
+		for (int n = 0; n < thread_count; ++n)
+			threads.emplace_back(do_benchmark, thread_count);
+
+		for (auto& t : threads)
+			t.join();
+
+		auto end_t = high_resolution_clock::now();
+		auto exec_time = end_t - start_t;
+		cout << "Number of Threads = " << thread_count << ", ";
+		cout << "Exec Time = " << duration_cast<milliseconds>(exec_time).count() << "ms, \n";
+		set.display20();
+		set.clear();
+	}
+}
