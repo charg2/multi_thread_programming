@@ -1,13 +1,23 @@
 #pragma once
 #include <atomic>
 #include <iostream>
-
 #include <vector>
 #include <thread>
 #include <chrono>
 
 using namespace std;
 using namespace std::chrono;
+
+/*
+Number of Threads = 1, Exec Time = 19648ms,
+1, 2, 3, 4, 6, 7, 8, 12, 14, 16, 17, 21, 24, 27, 29, 31, 34, 36, 39, 41,
+Number of Threads = 2, Exec Time = 10141ms,
+2, 3, 4, 7, 8, 16, 18, 20, 23, 24, 26, 27, 31, 32, 33, 34, 35, 36, 38, 41,
+Number of Threads = 4, Exec Time = 5289ms,
+1, 4, 6, 10, 11, 14, 15, 16, 17, 19, 20, 22, 25, 26, 28, 29, 30, 31, 32, 33,
+Number of Threads = 8, Exec Time = 2903ms,
+2, 5, 7, 9, 10, 12, 13, 15, 16, 18, 19, 22, 23, 28, 30, 31, 34, 40, 42, 44,
+*/
 
 class LockFreeList
 {
@@ -45,7 +55,6 @@ public:
 		Node* get_next()
 		{
 			int local_next = next;
-
 			return reinterpret_cast<Node*>(local_next & 0xFFFF'FFFE);
 		}
 
@@ -58,23 +67,23 @@ public:
 			return reinterpret_cast<Node*>(value & 0xFFFF'FFFE);
 		}
 
-		Node* cas_next(Node* old_addr, Node* new_addr, bool old_mark, bool new_mark)
+		// 현재의 노드의 넥스트가 바뀌지 않았다면 새로운 노드를 넥스트로 변경함.
+		bool cas_next(Node* old_addr, Node* new_addr, bool old_mark, bool new_mark)
 		{
 			int old_value = reinterpret_cast<int>(old_addr);
 			if (true == old_mark)
 			{
 				old_value = old_value | 1;
 			}
+
 			int new_value = reinterpret_cast<int>(new_addr);
 			if (true == new_mark)
-
 			{
 				new_value = new_value | 1;
 			}
 
-			// curr = curr->get_next();
-			// 
-			return atomic_compare_exchange_strong((volatile atomic<Node>*)this, (Node*)&old_value, reinterpret_cast<Node*>(new_value));
+
+			return atomic_compare_exchange_strong((atomic_int*)&next, &old_value, new_value);
 		}
 
 		std::atomic_int		next;
@@ -100,74 +109,77 @@ public:
 	void clear()
 	{
 		Node* ptr = head.get_next();
-
 		while (ptr != &tail)
 		{
 			Node* to_delete = ptr;
 			ptr = ptr->get_next();
-
 			delete to_delete;
 		}
 
 		head.set_next(&tail, false);
-
 	}
 
 	void find(int key, Node** pred, Node** curr)
 	{
 	retry:
-
 		Node* local_pred = &head;
 		Node* local_cur = local_pred->get_next();
+
 		//  local_cur가 마킹되어있으면제거하고 local_cur를 다시 세팅
-
-		bool is_removed;
-		Node* su = local_cur->get_next(&is_removed);
-
-		while (true == is_removed) // 지웡할게 한개가아니라 앞으로도 계속있다.
+		for (;;)
 		{
-			if (local_pred->cas_next(local_cur, su, false, false) == false) // 실패면 충돌한것. 
+			bool	is_removed;
+			Node* local_next = local_cur->get_next(&is_removed); // 넥스트와 마크의 사본을 동시에 얻음.
+
+
+			while (is_removed == true) // 지웡할게 한개가아니라 앞으로도 계속있다.
 			{
-				// 실패시 누가 석세서를 변경한것.
-				// 첨부터다시시작.
-				goto retry;
+				if (local_pred->cas_next(local_cur, local_next, false, false) == false) // 실패면 충돌한것. 이미 다른 스레드에서 find하다가 지우던가 .
+				{																// add에서 추가해서 next가 바뀜.
+					goto retry;													// 실패시 누가 석세서를 변경한것. // 첨부터다시시작.
+				}
+
+				local_cur = local_next;
+				local_next = local_cur->get_next(&is_removed);
 			}
 
-			local_cur = su;
-			su = local_cur->get_next(&is_removed);
+			// 
+			if (local_cur->key >= key)
+			{
+				*pred = local_pred;
+				*curr = local_cur;
+
+				return;
+			}
+			else
+			{
+				local_pred = local_cur;
+				local_cur = local_cur->get_next();
+			}
 		}
-
-
-		if (local_cur->key >= key)
-		{
-			*pred = local_pred;
-			*curr = local_cur;
-
-			return;
-		}
-
-		local_pred = local_cur;
-		local_cur = local_cur->get_next();
 	}
 
 
 	bool add(int key)
 	{
+		Node* new_node = new Node(key);
+
 		for (;;)
 		{
-			Node* pred;
-			Node* curr;
-			find(key, &pred, &curr); // key에 맞는 pred curr을 구함.
+			Node* local_pred;
+			Node* local_curr;
+			find(key, &local_pred, &local_curr); // key에 맞는 위치의 pred curr을 구함.
 
-			if (curr->key == key)
+			if (local_curr->key == key)
 			{
+				delete new_node;
+
 				return false;
 			}
 			else
 			{
-				Node* new_node = new Node(key);
-				new_node->set_next(curr, false);
-				if (pred->cas_next(curr, new_node, false, false))
+				new_node->set_next(local_curr, false);
+				if (local_pred->cas_next(local_curr, new_node, false, false))
 				{
 					return true;
 				}
@@ -180,14 +192,14 @@ public:
 
 	bool remove(int key)
 	{
-		
+
 		for (;;)
 		{
 			Node* pred;
 			Node* curr;
 			find(key, &pred, &curr); // key에 맞는 pred curr을 구함.
 
-			if (curr->key != key) 
+			if (curr->key != key) // 없는 경우 종료
 			{
 				return false;
 			}
@@ -197,27 +209,16 @@ public:
 				Node* succ = curr->get_next(&is_removed);
 				// is_removed 를 마킹 원자적으로
 				// 이미 지워졋다면 pass;
-				
-				if (is_removed == true) // 간단한 비교
+				// 2단계에 걸쳐서 진행.
+				// 1. 현재 지울 노드의 마킹을 한다.
+				// succ를 가리키는 포인터에 마킹이 포함되어 있어서 succ를 가리키는 포인터
+				if (curr->cas_next(succ, succ, false, true) == false) // 이미 지워진 경우.
 				{
-					// 이미 누가 한것.
-					return false;
+					continue; // 다시 find 호출해서 진짜 없는지 // 제거 표시면 지우라는 계시임.
 				}
 
-				
-				if (curr->get) // cas를 통해 마킹 확인.
-				{
-
-				}
-				
-				// 아니라면 지우고 return true;
-				// 위에작업을 cas로
-
-				
-				if (false == is_removed)
-				{
-					continue;
-				}
+				// 내가 삭제 표시를 한게 맞다면...
+				pred->cas_next(curr, succ, false, false);
 
 				return true;
 			}
@@ -227,23 +228,16 @@ public:
 
 	bool contain(int key)
 	{
+		bool is_removed = false;
+
 		Node* curr = &head;
-
-		Node* curr;
-		Node* pred;
-
-		find(key, &pred, &curr);
 
 		while (curr->key < key)
 		{
-			curr = curr->get_next();
-			curr->cas_next( next;
+			curr = curr->get_next(&is_removed);
 		}
 
-
-
-		return curr->key == key && curr->removed == false;
-
+		return curr->key == key && is_removed == false;
 	}
 
 
@@ -308,42 +302,36 @@ void do_benchmark(int num_threads)
 	}
 }
 
-auto main() -> int
+int main()
 {
 	set.clear();
 
 	for (size_t thread_count = 1; thread_count <= 8; thread_count *= 2)
-
 	{
-
 		vector<thread> threads;
 
 		auto start_time = high_resolution_clock::now();
 
 		for (int n = 0; n < thread_count; ++n)
-
+		{
 			threads.emplace_back(do_benchmark, thread_count);
-
+		}
 
 
 		for (auto& t : threads)
-
+		{
 			t.join();
-
-
+		}
 
 		auto end_time = high_resolution_clock::now();
-
 		auto exec_time = end_time - start_time;
-
 		cout << "Number of Threads = " << thread_count << ", ";
-
 		cout << "Exec Time = " << duration_cast<milliseconds>(exec_time).count() << "ms, \n";
-
 		set.display20();
-
 		set.clear();
 
 	}
 
+	return 0;
 }
+
