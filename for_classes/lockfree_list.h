@@ -2,11 +2,8 @@
 #include <atomic>
 #include <iostream>
 #include <vector>
-#include <thread>
-#include <chrono>
 
 using namespace std;
-using namespace std::chrono;
 
 /*
 Number of Threads = 1, Exec Time = 19648ms,
@@ -22,19 +19,13 @@ Number of Threads = 8, Exec Time = 2903ms,
 class LockFreeList
 {
 public:
-
 	struct Node
 	{
-		Node()
-		{
-			next = 0;
-		}
+		Node() : next{}, key{ -1}
+		{}
 
-		Node(int k)
-		{
-			key = k;
-			next = 0;
-		}
+		Node(int k) : key{ k }, next{}
+		{}
 
 		~Node()
 		{
@@ -261,77 +252,8 @@ public:
 	}
 
 
-
-
-
 private:
 	Node head;
 	Node tail;
 };
-
-
-
-constexpr size_t test_case = 400'0000;
-constexpr size_t key_range = 1000;
-LockFreeList set;
-
-
-void do_benchmark(int num_threads)
-{
-	for (int i = 0; i < test_case / num_threads; ++i)
-	{
-		switch (rand() % 3)
-		{
-		case 0:
-			set.add(rand() % key_range);
-			break;
-
-		case 1:
-			set.remove(rand() % key_range);
-			break;
-
-		case 2:
-			set.contain(rand() % key_range);
-
-			break;
-
-		default:
-			cout << "Error\n";
-			exit(-1);
-		}
-	}
-}
-
-int main()
-{
-	set.clear();
-
-	for (size_t thread_count = 1; thread_count <= 8; thread_count *= 2)
-	{
-		vector<thread> threads;
-
-		auto start_time = high_resolution_clock::now();
-
-		for (int n = 0; n < thread_count; ++n)
-		{
-			threads.emplace_back(do_benchmark, thread_count);
-		}
-
-
-		for (auto& t : threads)
-		{
-			t.join();
-		}
-
-		auto end_time = high_resolution_clock::now();
-		auto exec_time = end_time - start_time;
-		cout << "Number of Threads = " << thread_count << ", ";
-		cout << "Exec Time = " << duration_cast<milliseconds>(exec_time).count() << "ms, \n";
-		set.display20();
-		set.clear();
-
-	}
-
-	return 0;
-}
 
