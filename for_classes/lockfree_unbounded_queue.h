@@ -1,40 +1,40 @@
 #pragma once
 #include <iostream>
-#include <thread>
-#include <atomic>
-#include <vector>
+
+#include "cas.h"
 
 using namespace std;
 
-class LFUQueue
+class lockfree_unbounded_queue
 {
-	struct node_t
+	struct alignas(64) node_t
 	{
-	public:
-		int key;
-		node_t* volatile next;
+		int					key;
+		node_t* volatile	next;
 	};
 
 	alignas(64) node_t* volatile head;
 	alignas(64) node_t* volatile tail;
 
+
 public:
-	LFUQueue()
+
+	lockfree_unbounded_queue()
 	{
-		head = tail = new node_t{0, nullptr};
+		head = tail = new node_t{ 0, nullptr };
 	}
 
-	~LFUQueue()
+	~lockfree_unbounded_queue()
 	{
-		clear();
+		unsafe_clear();
 
 		delete head;
 	}
 
 
-	void clear()
+	void unsafe_clear()
 	{
-		node_t *ptr;
+		node_t* ptr;
 
 		while (head->next != nullptr)
 		{
@@ -45,34 +45,71 @@ public:
 		tail = head;
 	}
 
-	void enq(int x)
+	void enqueue(int x)
 	{
-		node_t* e = new node_t{ x, nullptr };
+		node_t* new_node = new node_t{ x, nullptr };
 
-		for(;;)
+		for (;;)
 		{
+			node_t* local_tail = this->tail;
+			node_t* local_next = local_tail->next;
 
+			if (local_tail != tail)
+			{
+				continue;
+			}
+
+			if (nullptr == local_next)
+			{
+				if (true == cas((volatile int*)&local_tail->next, (int)nullptr, (int)new_node))
+				{
+					// 위에서 캡처한 값일 경우만 꼬리 밀기.
+					cas((volatile int*)&tail, (int)local_tail, (int)new_node);//  꼬리 밀기
+					// 실패해도 누군가는 밀었다는것.
+					return;
+				}
+			}
+			else
+			{
+				cas((volatile int*)&tail, (int)local_tail, (int)local_next);//   // 꼬리 밀기.
+			}
 		}
-		
-		tail->next = e;
-		tail = e;
 	}
 
-	int deq()
+	int dequeue()
 	{
-
-		if (nullptr == head->next)
+		for (;;)
 		{
-			return -1;
+			node_t* local_head = this->head;
+			node_t* local_tail = this->tail;
+			node_t* local_next = local_head->next;
+
+			if (local_head != head)
+			{
+				continue;
+			}
+
+			if (nullptr == local_next) // empty()
+			{
+				return -1;
+			}
+
+			if (local_head == tail) // 안 밀린경우 기다리지 말고 밀어준다.
+			{
+				cas((volatile int*)&tail, (int)local_tail, (int)local_tail->next);//   // 꼬리 밀기.
+				continue;
+			}
+
+			int ret_val = local_next->key;
+			if (false == cas((volatile int*)&head, (int)local_head, (int)local_next))
+			{
+				continue;
+			}
+
+			delete local_head;
+
+			return ret_val;
 		}
-
-		node_t* temp = head;
-		int result = temp->next->key;
-		head = temp->next;
-
-
-		delete temp;
-		return result;
 	}
 
 	void unsafe_display20()
@@ -90,5 +127,11 @@ public:
 			ptr = ptr->next;
 		}
 		cout << "\n";
+	}
+
+
+	bool unsafe_empty()
+	{
+		return false;
 	}
 };
