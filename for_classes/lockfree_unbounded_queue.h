@@ -15,8 +15,8 @@ class LFUQueue
 		node_t* volatile next;
 	};
 
-	alignas(64) node_t *head;
-	alignas(64) node_t *tail;
+	alignas(64) node_t* volatile head;
+	alignas(64) node_t* volatile tail;
 
 public:
 	LFUQueue()
@@ -75,7 +75,7 @@ public:
 		return result;
 	}
 
-	void display20()
+	void unsafe_display20()
 	{
 		node_t* ptr = head->next;
 
