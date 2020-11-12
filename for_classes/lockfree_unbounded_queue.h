@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 
-#include "cas.h"
+#include "lockfree.h"
 
 using namespace std;
 
@@ -9,7 +9,7 @@ class lockfree_unbounded_queue
 {
 	struct alignas(64) node_t
 	{
-		int					key;
+		int			key;
 		node_t* volatile	next;
 	};
 
@@ -94,7 +94,7 @@ public:
 				return -1;
 			}
 
-			if (local_head == tail) // 안 밀린경우 기다리지 말고 밀어준다.
+			if (local_head == tail) // 안 밀린 경우 기다리지 말고 밀어준다.
 			{
 				cas((volatile int*)&tail, (int)local_tail, (int)local_tail->next);//   // 꼬리 밀기.
 				continue;
