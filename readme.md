@@ -17,6 +17,4 @@ Lock benchmark
 
                                                                     단위 (ms)
 
-!
-[tag]
-(benchmark/KakaoTalk_20201118_174752756.png)
+![tag](benchmark/20201118_amd_1700.png)
