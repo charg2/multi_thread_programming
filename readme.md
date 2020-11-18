@@ -16,3 +16,5 @@ Lock benchmark
 |SRWLock (Exclusice Mode)   |484    |906    |2594   |5047   |6484    |
 
                                                                     단위 (ms)
+
+(benchmark/KakaoTalk_20201118_174752756.png)
