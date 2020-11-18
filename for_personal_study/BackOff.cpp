@@ -31,3 +31,23 @@ custom_loop:
 #endif
 }
 
+
+void BackOffSleep::do_backoff_sleep()
+{
+	int32_t delay = (fast_rand() % limit);
+	if (0 == delay)
+	{
+		return;
+	}
+
+	limit = limit + limit;
+	if (limit > BackOffSleep::max_delay)
+	{
+		limit = BackOffSleep::max_delay;
+	}
+
+	timeBeginPeriod(1);
+	Sleep((uint32_t)min(delay, BackOffSleep::max_delay));
+	timeEndPeriod(1);
+}
+
