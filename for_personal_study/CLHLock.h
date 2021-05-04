@@ -14,12 +14,12 @@ private:
 public:
 	CLHLock() 
 	{
-		tail = new QNode{ false };
+		tail_pos = new QNode{ false };
 	}
 
 	~CLHLock()
 	{
-		delete tail;
+		delete tail_pos;
 	}
 
 	void lock()
@@ -33,8 +33,8 @@ public:
 		node->locked = true;
 
 
-		//QNode* prev = reinterpret_cast<QNode*>(InterlockedExchange((unsigned long long*)tail, (unsigned long long)node));
-		QNode* prev = static_cast<QNode*>(InterlockedExchangePointer((volatile PVOID*)&tail, node));
+		//QNode* prev = reinterpret_cast<QNode*>(InterlockedExchange((unsigned long long*)tail_pos, (unsigned long long)node));
+		QNode* prev = static_cast<QNode*>(InterlockedExchangePointer((volatile PVOID*)&tail_pos, node));
 		local_prev = prev;
 
 
@@ -53,7 +53,7 @@ public:
 	}
 
 private:
-	QNode* tail;
+	QNode* tail_pos;
 
 	inline static thread_local QNode* local_node{};
 	inline static thread_local QNode* local_prev{};

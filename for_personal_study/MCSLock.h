@@ -4,28 +4,28 @@
 class MCSLock
 {
 private:
-	struct QNode
+	struct node_t
 	{
 		bool	locked;
-		QNode*	next;
+		node_t*	next;
 	};
 
 public:
-	MCSLock() : tail{ nullptr }
+	MCSLock() : tail_pos{ nullptr }
 	{}
 
 	void lock()
 	{
-		QNode* node = local_node;
+		node_t* node = local_node;
 		if (node == nullptr)
 		{
-			node = new QNode{ true, nullptr };
+			node = new node_t{ true, nullptr };
 			local_node = node;
 		}
 
-		QNode* prev = static_cast<QNode*>(InterlockedExchangePointer((volatile PVOID*)&tail, node));
-
-		if (prev != nullptr)
+		// wait free queue의 테일 처럼
+		node_t* prev = static_cast<node_t*>(InterlockedExchangePointer((volatile PVOID*)&tail_pos, node));
+		if (prev != nullptr) // 맨처음엔 tail_pos
 		{
 			node->locked = true;
 			prev->next = node;
@@ -36,12 +36,12 @@ public:
 
 	void unlock()
 	{
-		QNode* node = local_node;
+		node_t* node = local_node;
 		
 		if (node->next == nullptr)
 		{
 			// 락에 접근 하는 다른 스레드가 없는 경우.
-			if ( node == InterlockedCompareExchangePointer((volatile PVOID*)&tail , nullptr, node) )
+			if ( node == InterlockedCompareExchangePointer((volatile PVOID*)&tail_pos , nullptr, node) )
 			{
 				return;
 			}
@@ -55,6 +55,6 @@ public:
 	}
 
 private:
-	inline static thread_local QNode* local_node { };
-	QNode*	tail;
+	inline static thread_local node_t* local_node { };
+	node_t*	tail_pos;
 };

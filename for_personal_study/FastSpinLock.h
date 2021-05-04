@@ -31,7 +31,7 @@ public:
 
 	void LeaveLock()
 	{
-		mLockFlag = 0;
+		InterlockedExchange((volatile LONG*)&mLockFlag, 0);
 	}
 
 private:

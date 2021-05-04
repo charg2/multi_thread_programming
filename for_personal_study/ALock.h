@@ -9,7 +9,7 @@ public:
 	ALock(int64_t capacity) : size{ capacity }, tls_index{ TLS_OUT_OF_INDEXES }
 	{
 		flags = new int256_t[capacity];
-		tail = -1;
+		tail_pos = -1;
 		flags[0].value = 1;
 
 		tls_index = TlsAlloc();
@@ -32,7 +32,7 @@ public:
 
 	void lock()
 	{
-		int64_t slot = (InterlockedIncrement64(&tail)) % size;
+		int64_t slot = (InterlockedIncrement64(&tail_pos)) % size;
 		TlsSetValue(tls_index, (void*)slot);
 		for (; flags[slot].value == 0 ;)
 		{}
@@ -55,7 +55,7 @@ private:
 
 private:
 	int256_t*	flags;
-	int64_t		tail;
+	int64_t		tail_pos;
 	int64_t		size;
 	uint32_t	tls_index;
 };
